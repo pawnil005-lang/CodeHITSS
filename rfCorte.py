@@ -5,7 +5,6 @@ import re
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Alignment
 
-# test
 # ==========================================
 #         CONFIGURACIÓN MANUAL
 # ==========================================
@@ -13,11 +12,19 @@ from openpyxl.styles import PatternFill, Font, Alignment
 ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
 
 # 2. Definir las 'E' que aparecerán en la tabla de fotos
-usuarios_permitidos = ['E759708', 'E759762', 'E759763', 'E760214', 'E760642','E760568', 'E761375']
+usuarios_permitidos = [
+    'E759708', # 
+    'E759762', #
+    'E759763', #
+    'E760214', #
+    'E760642', #
+    'E760568', # RICHARD
+    'E761375'  # ANGEL
+    ]
 
 # 3. Definir la HORA LÍMITE de forma manual (Formato 24 horas 'HH:MM')
 # Ejemplo: '11:00' procesará todo lo hecho HASTA las 10:59:59.
-hora_corte_manual = '13:00'
+hora_corte_manual = '14:00'
 # ==========================================
 
 ruta_salida = os.path.join(ruta_carpeta, 'Reporte_Consolidado_Final.xlsx')
