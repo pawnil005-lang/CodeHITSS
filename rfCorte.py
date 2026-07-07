@@ -13,18 +13,18 @@ ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Com
 
 # 2. Definir las 'E' que aparecerán en la tabla de fotos
 usuarios_permitidos = [
-    'E759708', # 
-    'E759762', #
-    'E759763', #
-    'E760214', #
-    'E760642', #
+    'E759708', # FRESIA
+    'E759762', # RENATO
+    'E759763', # ERICK
+    'E760214', # RENZO
+    'E760642', # MANUEL
     'E760568', # RICHARD
     'E761375'  # ANGEL
     ]
 
 # 3. Definir la HORA LÍMITE de forma manual (Formato 24 horas 'HH:MM')
 # Ejemplo: '11:00' procesará todo lo hecho HASTA las 10:59:59.
-hora_corte_manual = '14:00'
+hora_corte_manual = '18:00'
 # ==========================================
 
 ruta_salida = os.path.join(ruta_carpeta, 'Reporte_Consolidado_Final.xlsx')
@@ -59,11 +59,10 @@ for archivo in archivos_cortes:
         columna_pendientes = [col for col in df_control.columns if 'pendientes' in str(col).lower()][0]
         pendientes = pd.to_numeric(df_control[columna_pendientes], errors='coerce').sum()
         
-        # === NUEVA CONDICIÓN: IGNORAR SI PENDIENTES ES 0 ===
+        # Ignorar si pendientes es 0
         if int(pendientes) == 0:
             print(f"Omitido (Pendientes = 0): {nombre_archivo}")
-            continue  # Salta a la siguiente iteración sin agregar el documento
-        # ===================================================
+            continue  
         
         gestionados = cargados - pendientes
         
@@ -159,8 +158,20 @@ if archivos_fotos:
                     
                     df_ajustada['HORA_FORMATO'] = df_ajustada['HORA_INT'].apply(mapear_hora_string)
                     
+                    # === ORDENAR COLUMNAS CRONOLÓGICAMENTE ===
+                    horas_ordenadas_int = sorted(df_ajustada['HORA_INT'].unique())
+                    horas_ordenadas_str = [mapear_hora_string(h) for h in horas_ordenadas_int]
+                    
+                    # Forzamos a Pandas a reconocer este orden específico en lugar del alfabético
+                    df_ajustada['HORA_FORMATO'] = pd.Categorical(
+                        df_ajustada['HORA_FORMATO'], 
+                        categories=horas_ordenadas_str, 
+                        ordered=True
+                    )
+                    # ==========================================
+                    
                     df_fotos_dinamica = pd.pivot_table(
-                        df_ajustada, index=['USUARIO E'], columns='HORA_FORMATO', 
+                        df_ajustada, index=['FECHA_SOLO', 'USUARIO E'], columns='HORA_FORMATO', 
                         values='SOT', aggfunc='sum', margins=True, margins_name='Total'
                     ).fillna("")
         else:
