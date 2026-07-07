@@ -9,7 +9,8 @@ from openpyxl.styles import PatternFill, Font, Alignment
 #         CONFIGURACIÓN MANUAL
 # ==========================================
 # 1. Definir la ruta de tu escritorio
-ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
+#ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
+ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
 
 # 2. Definir las 'E' que aparecerán en la tabla de fotos
 usuarios_permitidos = [
@@ -171,7 +172,7 @@ if archivos_fotos:
                     # ==========================================
                     
                     df_fotos_dinamica = pd.pivot_table(
-                        df_ajustada, index=['FECHA_SOLO', 'USUARIO E'], columns='HORA_FORMATO', 
+                        df_ajustada, index=['USUARIO E'], columns='HORA_FORMATO', 
                         values='SOT', aggfunc='sum', margins=True, margins_name='Total'
                     ).fillna("")
         else:
