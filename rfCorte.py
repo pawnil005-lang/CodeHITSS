@@ -16,7 +16,7 @@ usuarios_permitidos = ['E759708', 'E759762', 'E759763', 'E760214', 'E760642','E7
 
 # 3. Definir la HORA LÍMITE de forma manual (Formato 24 horas 'HH:MM')
 # Ejemplo: '11:00' procesará todo lo hecho HASTA las 10:59:59.
-hora_corte_manual = '12:00'
+hora_corte_manual = '13:00'
 # ==========================================
 
 ruta_salida = os.path.join(ruta_carpeta, 'Reporte_Consolidado_Final.xlsx')
