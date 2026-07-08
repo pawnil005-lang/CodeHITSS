@@ -14,14 +14,17 @@ ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Jul
 
 # 2. Definir las 'E' que aparecerán en la tabla de fotos
 usuarios_permitidos = [
-    'E759708', # FRESIA
-    'E759762', # RENATO
-    'E759763', # ERICK
-    'E760214', # RENZO
-    'E760642', # MANUEL
-    'E760568', # RICHARD
-    'E761375'  # ANGEL
-    ]
+'E759763', # ERICK JONATHAN NÚÑEZ LUDEÑA
+'E759708', # FRESIA CLEMENTE RODRIGUEZ
+'E759762', # RENATO PAULO CALLAN ANDRADE
+'E759747', # JORGELUIS ARMANDO CORDOVA TORRES
+'E759761', # PABLO ANDRÉS MENDOZA CALLE
+'E759899', # AARON ADRIANO GUZMAN PHATTE
+# 'E760214', # RENZO ALFREDO ULLOA BOZETA
+'E760568', # RICHARD BRUSS HUAYSARA ROMAN
+'E760642', # MANUEL ALEJANDRO ANGELES RAMON
+# 'E761375' # ANGEL ZAVALA
+]
 
 # 3. Definir la HORA LÍMITE de forma manual (Formato 24 horas 'HH:MM')
 # Ejemplo: '11:00' procesará todo lo hecho HASTA las 10:59:59.
