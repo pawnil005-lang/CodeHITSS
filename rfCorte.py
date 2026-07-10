@@ -9,26 +9,26 @@ from openpyxl.styles import PatternFill, Font, Alignment
 #         CONFIGURACIÓN MANUAL
 # ==========================================
 # 1. Definir la ruta de tu escritorio
-#ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
-ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
+ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
+#ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
 
 # 2. Definir las 'E' que aparecerán en la tabla de fotos
 usuarios_permitidos = [
 'E759763', # ERICK JONATHAN NÚÑEZ LUDEÑA
 'E759708', # FRESIA CLEMENTE RODRIGUEZ
-'E759762', # RENATO PAULO CALLAN ANDRADE
+#'E759762', # RENATO PAULO CALLAN ANDRADE
 'E759747', # JORGELUIS ARMANDO CORDOVA TORRES
 'E759761', # PABLO ANDRÉS MENDOZA CALLE
 'E759899', # AARON ADRIANO GUZMAN PHATTE
-# 'E760214', # RENZO ALFREDO ULLOA BOZETA
+'E760214', # RENZO ALFREDO ULLOA BOZETA
 'E760568', # RICHARD BRUSS HUAYSARA ROMAN
-'E760642', # MANUEL ALEJANDRO ANGELES RAMON
+#'E760642', # MANUEL ALEJANDRO ANGELES RAMON
 # 'E761375' # ANGEL ZAVALA
 ]
 
 # 3. Definir la HORA LÍMITE de forma manual (Formato 24 horas 'HH:MM')
 # Ejemplo: '11:00' procesará todo lo hecho HASTA las 10:59:59.
-hora_corte_manual = '18:00'
+hora_corte_manual = '13:00'
 # ==========================================
 
 ruta_salida = os.path.join(ruta_carpeta, 'Reporte_Consolidado_Final.xlsx')
