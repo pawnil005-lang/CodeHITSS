@@ -3,6 +3,7 @@ import glob
 import os
 import re
 import shutil
+from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Alignment
 
@@ -25,7 +26,14 @@ usuarios_permitidos = [
     # 'E761375'   # ANGEL ZAVALA
 ]
 
-hora_corte_manual = '15:00'
+# --- CÁLCULO AUTOMÁTICO DE FECHA Y HORA DE CORTE ---
+ahora = datetime.now()
+hora_corte_manual = ahora.strftime('%H:00')  # Extrae la hora actual en punto (ej. "15:00")
+fecha_hoy_str = ahora.strftime('%d/%m/%Y')   # Extrae la fecha de hoy para el filtro (ej. "12/07/2026")
+
+print(f"[INFO] Fecha actual detectada: {fecha_hoy_str} -> Hora de corte aplicada: {hora_corte_manual}")
+# ---------------------------------------------------
+
 ruta_salida = os.path.join(ruta_carpeta, 'Reporte_Consolidado_Final.xlsx')
 # ==========================================
 
@@ -100,7 +108,6 @@ for archivo in archivos_cortes:
 
 df_cortes = pd.DataFrame(datos_reporte)
 if not df_cortes.empty:
-    # Orden intercalado definido
     column_order = ['FECHA', 'CARGADOS', 'ALTAS', 'PEND. ALTAS', 'MANTOS', 'PEND. MANTOS', 'PENDIENTES', 'GESTIONADOS']
     df_cortes = df_cortes[column_order]
     
@@ -124,10 +131,16 @@ if archivos_fotos:
             col_fecha = col_hora = 'HORA DE FINALIZACIÓN'
             
         if col_fecha and col_hora:
+            # 1. Filtro por usuarios permitidos
             if 'USUARIO E' in df_f.columns and usuarios_permitidos:
                 df_f['USUARIO E'] = df_f['USUARIO E'].astype(str).str.strip()
                 df_f = df_f[df_f['USUARIO E'].isin(usuarios_permitidos)]
             
+            # 2. NUEVO FILTRO: Estrictamente la fecha de hoy (ignora días anteriores como el 11)
+            fechas_evaluadas = pd.to_datetime(df_f[col_fecha], errors='coerce').dt.strftime('%d/%m/%Y')
+            df_f = df_f[fechas_evaluadas == fecha_hoy_str]
+            
+            # 3. Filtro por hora máxima (hora de corte automática en punto)
             horas_str = df_f[col_hora].astype(str).str.replace('a. m.', 'AM', regex=False).str.replace('p. m.', 'PM', regex=False)
             horas_24h = pd.to_datetime(horas_str, errors='coerce').dt.strftime('%H:%M:%S')
             limite_str = pd.to_datetime(hora_corte_manual, format='%H:%M').strftime('%H:%M:%S')
@@ -136,7 +149,7 @@ if archivos_fotos:
             
             if not df_f.empty:
                 df_f['HORA_INT'] = pd.to_datetime(horas_str, errors='coerce').dt.hour
-                df_f['FECHA_SOLO'] = pd.to_datetime(df_f[col_fecha], errors='coerce').dt.strftime('- %d/%m/%Y')
+                df_f['FECHA_SOLO'] = f"- {fecha_hoy_str}"
                 
                 df_grouped = df_f.groupby(['FECHA_SOLO', 'USUARIO E', 'HORA_INT']).size().reset_index(name='SOT')
                 df_ajustado_list = []
@@ -168,6 +181,8 @@ if archivos_fotos:
                     
                     df_ajustada['HORA_FORMATO'] = pd.Categorical(df_ajustada['HORA_FORMATO'], categories=horas_ordenadas, ordered=True)
                     df_fotos_dinamica = pd.pivot_table(df_ajustada, index=['USUARIO E'], columns='HORA_FORMATO', values='SOT', aggfunc='sum', margins=True, margins_name='Total').fillna("")
+            else:
+                print(f"[AVISO] Después de filtrar por fecha de hoy ({fecha_hoy_str}) y hora (<{hora_corte_manual}), no quedaron registros en RF FOTOS.")
         else:
             print(f"No se detectaron las columnas requeridas. Halladas: {list(df_f.columns)}")
     except Exception as e:
@@ -191,48 +206,38 @@ if os.path.exists(ruta_salida):
     wb = load_workbook(ruta_salida)
     ws = wb['Resumen']
     
-    # Paleta de colores
     blue_fill = PatternFill(start_color="3B5E94", end_color="3B5E94", fill_type="solid") # Azul Base
-    pend_fill = PatternFill(start_color="558ED5", end_color="558ED5", fill_type="solid") # Azul Claro (Tono diferenciador)
+    pend_fill = PatternFill(start_color="558ED5", end_color="558ED5", fill_type="solid") # Azul Claro
     white_font = Font(color="FFFFFF", bold=True)
     center_align = Alignment(horizontal="center", vertical="center")
 
-    # Centrado general
     for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
         for cell in row:
             cell.alignment = center_align
 
-    # Formato de la Primera Tabla
     if not df_cortes.empty:
         for row_idx in [1, len(df_cortes) + 1]:
             for col_idx, col_name in enumerate(df_cortes.columns, 1):
                 cell = ws.cell(row=row_idx, column=col_idx)
-                
-                # Asignamos el color intercalado según el nombre de la columna
                 if 'PEND' in str(col_name).upper():
                     cell.fill = pend_fill
                 else:
                     cell.fill = blue_fill
-                    
                 cell.font = white_font
 
-    # Formato de la Segunda Tabla
     if not df_fotos_dinamica.empty:
-        # Cabecera de la tabla 2
         for col_idx in range(1, ws.max_column + 1):
             cell = ws.cell(row=fila_t2 + 1, column=col_idx)
             if cell.value is not None:
                 cell.fill = blue_fill
                 cell.font = white_font
         
-        # Fila TOTAL de la tabla 2 (Última fila de la hoja)
         for col_idx in range(1, ws.max_column + 1):
             cell = ws.cell(row=ws.max_row, column=col_idx)
             if cell.value is not None:
                 cell.fill = blue_fill
                 cell.font = white_font
 
-    # Ancho de columnas
     for col in ws.columns:
         ws.column_dimensions[col[0].column_letter].width = 14
 
