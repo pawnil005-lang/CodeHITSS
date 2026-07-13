@@ -12,17 +12,16 @@ from openpyxl.styles import PatternFill, Font, Alignment
 # ==========================================
 ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
 # ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
-# TODO
 
 usuarios_permitidos = [
-    #'E759763',  # ERICK JONATHAN NÚÑEZ LUDEÑA
-    #'E759708',  # FRESIA CLEMENTE RODRIGUEZ
-    'E759762',  # RENATO PAULO CALLAN ANDRADE
+    'E759763',  # ERICK JONATHAN NÚÑEZ LUDEÑA
+    'E759708',  # FRESIA CLEMENTE RODRIGUEZ
+    #'E759762',  # RENATO PAULO CALLAN ANDRADE
     'E759747',  # JORGELUIS ARMANDO CORDOVA TORRES
     #'E759761',  # PABLO ANDRÉS MENDOZA CALLE
     'E759899',  # AARON ADRIANO GUZMAN PHATTE
     'E760214',  # RENZO ALFREDO ULLOA BOZETA
-    #'E760568',  # RICHARD BRUSS HUAYSARA ROMAN
+    'E760568',  # RICHARD BRUSS HUAYSARA ROMAN
     'E760642',  # MANUEL ALEJANDRO ANGELES RAMON
     # 'E761375' ,  # ANGEL ZAVALA
     'E759960',
