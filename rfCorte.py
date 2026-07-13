@@ -12,6 +12,7 @@ from openpyxl.styles import PatternFill, Font, Alignment
 # ==========================================
 ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
 # ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
+# TODO
 
 usuarios_permitidos = [
     #'E759763',  # ERICK JONATHAN NÚÑEZ LUDEÑA
