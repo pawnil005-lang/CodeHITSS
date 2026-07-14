@@ -6,12 +6,16 @@ import shutil
 from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Alignment
+from openpyxl.utils import get_column_letter
+from openpyxl.drawing.image import Image
 
 # ==========================================
 #         CONFIGURACIÓN MANUAL
 # ==========================================
 ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
 # ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
+
+ruta_logo = r'C:\Users\mendozapa\Desktop\CODEPABLO\CodeHITSS\LogoHits.png'
 
 usuarios_permitidos = [
     'E759763',  # ERICK JONATHAN NÚÑEZ LUDEÑA
@@ -28,13 +32,12 @@ usuarios_permitidos = [
     #'E760197',
     #'E760189',
     #'E760570'
-
 ]
 
 # --- CÁLCULO AUTOMÁTICO DE FECHA Y HORA DE CORTE ---
 ahora = datetime.now()
-hora_corte_manual = ahora.strftime('%H:00')  # Extrae la hora actual en punto (ej. "15:00")
-fecha_hoy_str = ahora.strftime('%d/%m/%Y')   # Extrae la fecha de hoy para el filtro (ej. "12/07/2026")
+hora_corte_manual = ahora.strftime('%H:00')  
+fecha_hoy_str = ahora.strftime('%d/%m/%Y')   
 
 print(f"[INFO] Fecha actual detectada: {fecha_hoy_str} -> Hora de corte aplicada: {hora_corte_manual}")
 # ---------------------------------------------------
@@ -79,7 +82,6 @@ for archivo in archivos_cortes:
         df_mantos = pd.read_excel(archivo, sheet_name='BASE MANTOS')
         df_control = pd.read_excel(archivo, sheet_name='CONTROL X ASESOR')
         
-        # Búsqueda de pendientes en CONTROL X ASESOR
         col_pend_altas = next((c for c in df_control.columns if str(c).strip().upper().replace('_', ' ').startswith('PENDIENTE A')), None)
         col_pend_mantos = next((c for c in df_control.columns if str(c).strip().upper().replace('_', ' ').startswith('PENDIENTE M')), None)
         
@@ -136,16 +138,13 @@ if archivos_fotos:
             col_fecha = col_hora = 'HORA DE FINALIZACIÓN'
             
         if col_fecha and col_hora:
-            # 1. Filtro por usuarios permitidos
             if 'USUARIO E' in df_f.columns and usuarios_permitidos:
                 df_f['USUARIO E'] = df_f['USUARIO E'].astype(str).str.strip()
                 df_f = df_f[df_f['USUARIO E'].isin(usuarios_permitidos)]
             
-            # 2. NUEVO FILTRO: Estrictamente la fecha de hoy (ignora días anteriores como el 11)
             fechas_evaluadas = pd.to_datetime(df_f[col_fecha], errors='coerce').dt.strftime('%d/%m/%Y')
             df_f = df_f[fechas_evaluadas == fecha_hoy_str]
             
-            # 3. Filtro por hora máxima (hora de corte automática en punto)
             horas_str = df_f[col_hora].astype(str).str.replace('a. m.', 'AM', regex=False).str.replace('p. m.', 'PM', regex=False)
             horas_24h = pd.to_datetime(horas_str, errors='coerce').dt.strftime('%H:%M:%S')
             limite_str = pd.to_datetime(hora_corte_manual, format='%H:%M').strftime('%H:%M:%S')
@@ -196,11 +195,12 @@ if archivos_fotos:
 
 # --- PARTE 3: EXPORTAR Y APLICAR FORMATO CONJUNTO ---
 with pd.ExcelWriter(ruta_salida, engine='openpyxl') as writer:
+    startrow_cortes = 2 
     if not df_cortes.empty:
-        df_cortes.to_excel(writer, sheet_name='Resumen', index=False, startrow=0)
-        fila_t2 = len(df_cortes) + 4
+        df_cortes.to_excel(writer, sheet_name='Resumen', index=False, startrow=startrow_cortes)
+        fila_t2 = startrow_cortes + len(df_cortes) + 3
     else:
-        fila_t2 = 0
+        fila_t2 = startrow_cortes
         
     if not df_fotos_dinamica.empty:
         df_fotos_dinamica.to_excel(writer, sheet_name='Resumen', index=True, startrow=fila_t2)
@@ -211,17 +211,62 @@ if os.path.exists(ruta_salida):
     wb = load_workbook(ruta_salida)
     ws = wb['Resumen']
     
-    blue_fill = PatternFill(start_color="3B5E94", end_color="3B5E94", fill_type="solid") # Azul Base
-    pend_fill = PatternFill(start_color="558ED5", end_color="558ED5", fill_type="solid") # Azul Claro
-    white_font = Font(color="FFFFFF", bold=True)
+    # --- Paleta de Colores ---
+    banner_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid") # Azul Oscuro
+    blue_fill   = PatternFill(start_color="3B5E94", end_color="3B5E94", fill_type="solid") # Azul Base Tablas
+    pend_fill   = PatternFill(start_color="558ED5", end_color="558ED5", fill_type="solid") # Azul Claro Pendientes
+    
+    white_font  = Font(color="FFFFFF", bold=True)
+    banner_font = Font(color="FFFFFF", bold=True, size=16) 
+    
     center_align = Alignment(horizontal="center", vertical="center")
 
+    # 1. Alineación general centrada para todas las celdas
     for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
         for cell in row:
             cell.alignment = center_align
 
+    # 2. INSERTAR ENCABEZADO BANNER Y LOGO
+    max_col = ws.max_column if ws.max_column > 1 else 8
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max_col)
+    
+    for col_idx in range(1, max_col + 1):
+        celda = ws.cell(row=1, column=col_idx)
+        celda.fill = banner_fill
+        celda.font = banner_font
+            
+    # Texto centrado limpiamente
+    ws.cell(row=1, column=1).value = f"CORTE FOTOS - {hora_corte_manual}"
+    
+    # Altura del Banner ajustada a 50 puntos para albergar cómodamente los 1.68 cm (64 px)
+    ws.row_dimensions[1].height = 50
+
+    # Insertar Logo en la Celda C1
+    if os.path.exists(ruta_logo):
+        try:
+            img = Image(ruta_logo)
+            
+            # --- TAMAÑO EXACTO: 1.68 cm x 1.68 cm (64 x 64 píxeles) ---
+            img.height = 64
+            img.width = 64
+            
+            # Posicionamiento: ajustado más hacia la derecha dentro de la columna C
+            img.left = 80  # Incrementado para empujarlo a la derecha sin salir de C1
+            img.top = 3    # Ligero margen superior
+            
+            ws.add_image(img, 'C1')
+            print(f"[ÉXITO] Logo integrado (Tamaño exacto: 1.68 cm x 1.68 cm ajustado a la derecha en C1).")
+        except Exception as e:
+            print(f"[AVISO] No se pudo insertar la imagen {ruta_logo}: {e}")
+    else:
+        print(f"[AVISO] No se encontró la imagen en la ruta: {ruta_logo}")
+
+    # 3. Formato Tabla 1 (Cortes TOA)
     if not df_cortes.empty:
-        for row_idx in [1, len(df_cortes) + 1]:
+        row_header_cortes = startrow_cortes + 1                  
+        row_total_cortes = startrow_cortes + len(df_cortes) + 1  
+        
+        for row_idx in [row_header_cortes, row_total_cortes]:
             for col_idx, col_name in enumerate(df_cortes.columns, 1):
                 cell = ws.cell(row=row_idx, column=col_idx)
                 if 'PEND' in str(col_name).upper():
@@ -230,9 +275,11 @@ if os.path.exists(ruta_salida):
                     cell.fill = blue_fill
                 cell.font = white_font
 
+    # 4. Formato Tabla 2 (RF Fotos Dinámica)
     if not df_fotos_dinamica.empty:
+        row_header_fotos = fila_t2 + 1
         for col_idx in range(1, ws.max_column + 1):
-            cell = ws.cell(row=fila_t2 + 1, column=col_idx)
+            cell = ws.cell(row=row_header_fotos, column=col_idx)
             if cell.value is not None:
                 cell.fill = blue_fill
                 cell.font = white_font
@@ -243,8 +290,10 @@ if os.path.exists(ruta_salida):
                 cell.fill = blue_fill
                 cell.font = white_font
 
-    for col in ws.columns:
-        ws.column_dimensions[col[0].column_letter].width = 14
+    # 5. Ajustar ancho de columnas
+    for col_idx in range(1, ws.max_column + 1):
+        letra_columna = get_column_letter(col_idx)
+        ws.column_dimensions[letra_columna].width = 15
 
     wb.save(ruta_salida)
     print(f"\n¡Éxito! Ambos reportes consolidados con el nuevo formato en:\n{ruta_salida}")
