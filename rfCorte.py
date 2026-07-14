@@ -15,7 +15,7 @@ from openpyxl.drawing.image import Image
 ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
 # ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
 
-ruta_logo = r'C:\Users\mendozapa\Desktop\CODEPABLO\CodeHITSS\LogoHits.png'
+ruta_logo = r'LogoHits.png'
 
 usuarios_permitidos = [
     'E759763',  # ERICK JONATHAN NÚÑEZ LUDEÑA
