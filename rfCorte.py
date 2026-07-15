@@ -13,7 +13,7 @@ from openpyxl.drawing.image import Image
 #         CONFIGURACIÓN MANUAL
 # ==========================================
 ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
-# ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
+#ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
 
 ruta_logo = r'LogoHits.png'
 
@@ -23,15 +23,15 @@ usuarios_permitidos = [
     'E759762',  # RENATO PAULO CALLAN ANDRADE
     'E759747',  # JORGELUIS ARMANDO CORDOVA TORRES
     #'E759761',  # PABLO ANDRÉS MENDOZA CALLE
-    #'E759899',  # AARON ADRIANO GUZMAN PHATTE
+    'E759899',  # AARON ADRIANO GUZMAN PHATTE
     'E760214',  # RENZO ALFREDO ULLOA BOZETA
     'E760568',  # RICHARD BRUSS HUAYSARA ROMAN
     'E760642',  # MANUEL ALEJANDRO ANGELES RAMON
     # 'E761375' ,  # ANGEL ZAVALA
-    #'E759960',
-    #'E760197',
-    #'E760189',
-    #'E760570'
+    'E759960',
+    'E760197',
+    'E760189',
+    'E760570'
 ]
 
 # --- CÁLCULO AUTOMÁTICO DE FECHA Y HORA DE CORTE ---
