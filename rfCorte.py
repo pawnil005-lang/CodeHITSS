@@ -12,9 +12,7 @@ from openpyxl.drawing.image import Image
 # ==========================================
 #         CONFIGURACIÓN MANUAL
 # ==========================================
-ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Julio'
-#ruta_carpeta = r'C:\Users\huaysarar\OneDrive - HITSS\Fotos Compartido\Cortes Julio'
-
+ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Agosto'
 ruta_logo = r'LogoHits.png'
 
 usuarios_permitidos = [
@@ -24,14 +22,8 @@ usuarios_permitidos = [
     'E759747',  # JORGELUIS ARMANDO CORDOVA TORRES
     #'E759761',  # PABLO ANDRÉS MENDOZA CALLE
     'E759899',  # AARON ADRIANO GUZMAN PHATTE
-    'E760214',  # RENZO ALFREDO ULLOA BOZETA
     'E760568',  # RICHARD BRUSS HUAYSARA ROMAN
     'E760642',  # MANUEL ALEJANDRO ANGELES RAMON
-    # 'E761375' ,  # ANGEL ZAVALA
-    'E759960',
-    'E760197',
-    'E760189',
-    'E760570'
 ]
 
 # --- CÁLCULO AUTOMÁTICO DE FECHA Y HORA DE CORTE ---
@@ -40,25 +32,25 @@ hora_corte_manual = ahora.strftime('%H:00')
 fecha_hoy_str = ahora.strftime('%d/%m/%Y')   
 
 print(f"[INFO] Fecha actual detectada: {fecha_hoy_str} -> Hora de corte aplicada: {hora_corte_manual}")
-# ---------------------------------------------------
 
 ruta_salida = os.path.join(ruta_carpeta, 'Reporte_Consolidado_Final.xlsx')
 # ==========================================
 
 
-# --- PARTE 0: AUTO-REUBICACIÓN DESDE DESCARGAS ---
+# --- PARTE 0: AUTO-REUBICACIÓN DESDE DESCARGAS (SOPORTA MÚLTIPLES ARCHIVOS) ---
 ruta_descargas = os.path.join(os.path.expanduser('~'), 'Downloads')
 archivos_descargados = glob.glob(os.path.join(ruta_descargas, "*REGISTRO DE RF FOTOS*.xlsx"))
 
 if archivos_descargados:
-    archivo_reciente = max(archivos_descargados, key=os.path.getmtime)
-    try:
-        shutil.move(archivo_reciente, os.path.join(ruta_carpeta, "REGISTRO DE RF FOTOS.xlsx"))
-        print(f"[ÉXITO] Archivo actualizado desde Descargas: {os.path.basename(archivo_reciente)}")
-    except Exception as e:
-        print(f"[ERROR] No se pudo mover el archivo: {e}")
+    for arch in archivos_descargados:
+        try:
+            nombre_base = os.path.basename(arch)
+            shutil.move(arch, os.path.join(ruta_carpeta, nombre_base))
+            print(f"[ÉXITO] Archivo trasladado desde Descargas: {nombre_base}")
+        except Exception as e:
+            print(f"[ERROR] No se pudo mover {arch}: {e}")
 else:
-    print("[INFO] No hay nuevas descargas. Se usará el 'REGISTRO DE RF FOTOS' existente en carpeta.")
+    print("[INFO] No hay nuevas descargas. Se usará(n) el/los 'REGISTRO DE RF FOTOS' existentes en la carpeta.")
 
 
 # --- PARTE 1: PROCESAR "CORTES TOA" ---
@@ -122,14 +114,21 @@ if not df_cortes.empty:
     df_cortes = pd.concat([df_cortes, pd.DataFrame({'FECHA': ['TOTAL'], **totales.to_dict()})], ignore_index=True)
 
 
-# --- PARTE 2: PROCESAR "REGISTRO DE RF FOTOS" ---
+# --- PARTE 2: PROCESAR "REGISTRO DE RF FOTOS" (COMBINA TODOS LOS ARCHIVOS QUE COINCIDAN) ---
 archivos_fotos = glob.glob(os.path.join(ruta_carpeta, "*REGISTRO DE RF FOTOS*.xlsx"))
 df_fotos_dinamica = pd.DataFrame()
 
 if archivos_fotos:
     try:
-        df_f = pd.read_excel(archivos_fotos[0])
-        df_f.columns = df_f.columns.astype(str).str.strip()
+        lista_dfs = []
+        for arch in archivos_fotos:
+            print(f"[LECTURA] Leyendo base de fotos: {os.path.basename(arch)}")
+            df_temp = pd.read_excel(arch)
+            df_temp.columns = df_temp.columns.astype(str).str.strip()
+            lista_dfs.append(df_temp)
+        
+        # Consolidación de todas las partes cargadas
+        df_f = pd.concat(lista_dfs, ignore_index=True)
         
         col_fecha = next((col for col in df_f.columns if 'hora de fi' in col.lower()), None)
         col_hora = next((col for col in df_f.columns if 'nalización' in col.lower()), None)
@@ -238,24 +237,20 @@ if os.path.exists(ruta_salida):
     # Texto centrado limpiamente
     ws.cell(row=1, column=1).value = f"CORTE FOTOS - {hora_corte_manual}"
     
-    # Altura del Banner ajustada a 50 puntos para albergar cómodamente los 1.68 cm (64 px)
+    # Altura del Banner ajustada a 50 puntos
     ws.row_dimensions[1].height = 50
 
     # Insertar Logo en la Celda C1
     if os.path.exists(ruta_logo):
         try:
             img = Image(ruta_logo)
-            
-            # --- TAMAÑO EXACTO: 1.68 cm x 1.68 cm (64 x 64 píxeles) ---
             img.height = 64
             img.width = 64
-            
-            # Posicionamiento: ajustado más hacia la derecha dentro de la columna C
-            img.left = 80  # Incrementado para empujarlo a la derecha sin salir de C1
-            img.top = 3    # Ligero margen superior
+            img.left = 80 
+            img.top = 3   
             
             ws.add_image(img, 'C1')
-            print(f"[ÉXITO] Logo integrado (Tamaño exacto: 1.68 cm x 1.68 cm ajustado a la derecha en C1).")
+            print(f"[ÉXITO] Logo integrado correctamente.")
         except Exception as e:
             print(f"[AVISO] No se pudo insertar la imagen {ruta_logo}: {e}")
     else:
