@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image
 
 # ==========================================
-#         CONFIGURACIÓN MANUAL
+#        CONFIGURACIÓN MANUAL
 # ==========================================
 ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Agosto'
 ruta_logo = r'LogoHits.png'
@@ -24,6 +24,7 @@ usuarios_permitidos = [
     'E759899',  # AARON ADRIANO GUZMAN PHATTE
     'E760568',  # RICHARD BRUSS HUAYSARA ROMAN
     'E760642',  # MANUEL ALEJANDRO ANGELES RAMON
+    'E760214',  # Renzo Alfredo Ulloa Bozeta 
 ]
 
 # --- CÁLCULO AUTOMÁTICO DE FECHA Y HORA DE CORTE ---
@@ -53,64 +54,96 @@ else:
     print("[INFO] No hay nuevas descargas. Se usará(n) el/los 'REGISTRO DE RF FOTOS' existentes en la carpeta.")
 
 
-# --- PARTE 1: PROCESAR "CORTES TOA" ---
-archivos_cortes = glob.glob(os.path.join(ruta_carpeta, "CORTES TOA*.xlsx"))
+# --- PARTE 1: PROCESAR "REPORTE NIVELES IA" ---
+archivos_cortes = glob.glob(os.path.join(ruta_carpeta, "Reporte_Niveles_IA*.xlsx"))
 datos_reporte = []
 meses_espanol = {1:'ene', 2:'feb', 3:'mar', 4:'abr', 5:'may', 6:'jun', 
                  7:'jul', 8:'ago', 9:'sep', 10:'oct', 11:'nov', 12:'dic'}
 
 for archivo in archivos_cortes:
     try:
-        match = re.search(r'CORTES TOA\s*(.*?)\.xlsx', os.path.basename(archivo), re.IGNORECASE)
+        print(f"[LECTURA] Procesando reporte IA: {os.path.basename(archivo)}")
+        
+        # Extrae la fecha ignorando el posible guion bajo inicial
+        match = re.search(r'Reporte_Niveles_IA_?(.*?)\.xlsx', os.path.basename(archivo), re.IGNORECASE)
         fecha_texto = match.group(1).strip() if match else "Desconocida"
         
         try:
-            f_obj = pd.to_datetime(fecha_texto, format='%Y%m%d')
+            # Convierte el formato DDMMYYYY (ej. 05082026) a fecha
+            f_obj = pd.to_datetime(fecha_texto, format='%d%m%Y')
             fecha = f"{f_obj.day:02d}-{meses_espanol[f_obj.month]}"
         except Exception:
             fecha = fecha_texto
         
-        df_altas = pd.read_excel(archivo, sheet_name='BASE ALTAS')
-        df_mantos = pd.read_excel(archivo, sheet_name='BASE MANTOS')
-        df_control = pd.read_excel(archivo, sheet_name='CONTROL X ASESOR')
+        # Identificar y leer la hoja "Corte x asesor" independientemente de mayúsculas/minúsculas
+        xls = pd.ExcelFile(archivo)
+        hoja_objetivo = next((s for s in xls.sheet_names if 'corte x asesor' in s.strip().lower()), None)
         
-        col_pend_altas = next((c for c in df_control.columns if str(c).strip().upper().replace('_', ' ').startswith('PENDIENTE A')), None)
-        col_pend_mantos = next((c for c in df_control.columns if str(c).strip().upper().replace('_', ' ').startswith('PENDIENTE M')), None)
-        
-        pend_altas = pd.to_numeric(df_control[col_pend_altas], errors='coerce').sum() if col_pend_altas else 0
-        pend_mantos = pd.to_numeric(df_control[col_pend_mantos], errors='coerce').sum() if col_pend_mantos else 0
-
-        cargados = len(df_altas) + len(df_mantos)
-        
-        col_pend = next((c for c in df_control.columns if str(c).strip().upper() == 'PENDIENTES'), None)
-        if col_pend:
-            pendientes = pd.to_numeric(df_control[col_pend], errors='coerce').sum()
+        if hoja_objetivo:
+            df_control = pd.read_excel(archivo, sheet_name=hoja_objetivo)
         else:
-            pendientes = pend_altas + pend_mantos
+            print(f"[AVISO] No se encontró la hoja 'Corte x asesor' en {os.path.basename(archivo)}. Usando la primera hoja.")
+            df_control = pd.read_excel(archivo)
+            
+        # Búsqueda dinámica de la fila de cabeceras que contenga 'TOTAL' y 'PENDIENTES'
+        header_idx = -1
+        for i, row in df_control.head(20).iterrows():
+            row_str = ' '.join([str(val).upper() for val in row if pd.notna(val)])
+            if 'TOTAL' in row_str and 'PENDIENTE' in row_str:
+                header_idx = i
+                break
+                
+        if header_idx != -1:
+            # Asignar la fila encontrada como nombres de columnas
+            df_control.columns = df_control.iloc[header_idx]
+            # Recortar el DataFrame para que solo contenga los datos debajo de las cabeceras
+            df_control = df_control.iloc[header_idx+1:].reset_index(drop=True)
+        else:
+            print(f"[AVISO] No se encontraron cabeceras claras de TOTAL y PENDIENTES en {os.path.basename(archivo)}")
+
+        # Identificar las columnas exactas
+        col_total = next((c for c in df_control.columns if pd.notna(c) and 'TOTAL' in str(c).strip().upper()), None)
+        col_pend = next((c for c in df_control.columns if pd.notna(c) and 'PENDIENTE' in str(c).strip().upper()), None)
+        col_term = next((c for c in df_control.columns if pd.notna(c) and 'TERMINADO' in str(c).strip().upper()), None)
         
-        if int(pendientes) == 0:
-            print(f"[OMITIDO] Pendientes = 0: {os.path.basename(archivo)}")
+        # Extraer el primer valor numérico válido de cada columna
+        try:
+            total = pd.to_numeric(df_control[col_total], errors='coerce').dropna().iloc[0] if col_total else 0
+        except IndexError:
+            total = 0
+            
+        try:
+            pendientes = pd.to_numeric(df_control[col_pend], errors='coerce').dropna().iloc[0] if col_pend else 0
+        except IndexError:
+            pendientes = 0
+            
+        if col_term:
+            try:
+                terminados = pd.to_numeric(df_control[col_term], errors='coerce').dropna().iloc[0]
+            except IndexError:
+                terminados = total - pendientes
+        else:
+            terminados = total - pendientes
+            
+        if int(total) == 0 and int(pendientes) == 0:
+            print(f"[OMITIDO] Sin datos encontrados para procesar en: {os.path.basename(archivo)}")
             continue
             
         datos_reporte.append({
             'FECHA': fecha, 
-            'CARGADOS': cargados, 
-            'ALTAS': len(df_altas),
-            'PEND. ALTAS': int(pend_altas),
-            'MANTOS': len(df_mantos), 
-            'PEND. MANTOS': int(pend_mantos),
+            'TOTAL': int(total), 
             'PENDIENTES': int(pendientes),
-            'GESTIONADOS': int(cargados - pendientes)
+            'TERMINADOS': int(terminados)
         })
     except Exception as e:
         print(f"Error procesando {archivo}: {e}")
 
 df_cortes = pd.DataFrame(datos_reporte)
 if not df_cortes.empty:
-    column_order = ['FECHA', 'CARGADOS', 'ALTAS', 'PEND. ALTAS', 'MANTOS', 'PEND. MANTOS', 'PENDIENTES', 'GESTIONADOS']
+    column_order = ['FECHA', 'TOTAL', 'PENDIENTES', 'TERMINADOS']
     df_cortes = df_cortes[column_order]
     
-    totales = df_cortes[['CARGADOS', 'ALTAS', 'PEND. ALTAS', 'MANTOS', 'PEND. MANTOS', 'PENDIENTES', 'GESTIONADOS']].sum()
+    totales = df_cortes[['TOTAL', 'PENDIENTES', 'TERMINADOS']].sum()
     df_cortes = pd.concat([df_cortes, pd.DataFrame({'FECHA': ['TOTAL'], **totales.to_dict()})], ignore_index=True)
 
 
@@ -240,7 +273,7 @@ if os.path.exists(ruta_salida):
     # Altura del Banner ajustada a 50 puntos
     ws.row_dimensions[1].height = 50
 
-    # Insertar Logo en la Celda C1
+    # Insertar Logo en la Celda A1
     if os.path.exists(ruta_logo):
         try:
             img = Image(ruta_logo)
@@ -249,14 +282,11 @@ if os.path.exists(ruta_salida):
             img.left = 80 
             img.top = 3   
             
-            ws.add_image(img, 'C1')
-            print(f"[ÉXITO] Logo integrado correctamente.")
+            ws.add_image(img, 'A1')
         except Exception as e:
-            print(f"[AVISO] No se pudo insertar la imagen {ruta_logo}: {e}")
-    else:
-        print(f"[AVISO] No se encontró la imagen en la ruta: {ruta_logo}")
+            pass
 
-    # 3. Formato Tabla 1 (Cortes TOA)
+    # 3. Formato Tabla 1 (Reporte Niveles IA)
     if not df_cortes.empty:
         row_header_cortes = startrow_cortes + 1                  
         row_total_cortes = startrow_cortes + len(df_cortes) + 1  
