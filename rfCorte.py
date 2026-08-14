@@ -12,19 +12,15 @@ from openpyxl.drawing.image import Image
 # ==========================================
 #        CONFIGURACIÓN MANUAL
 # ==========================================
-ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Fotos Compartido\Cortes Agosto'
-ruta_logo = r'LogoHits.png'
+ruta_carpeta = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Campañas Hitss - Angel Zavala\FOTOS\Fotos Compartido\Cortes Agosto'
+ruta_logo = r'C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Campañas Hitss - Angel Zavala\FOTOS\Fotos Compartido\Cortes Agosto\LogoHits.png'
 
 usuarios_permitidos = [
-    'E759763',  # ERICK JONATHAN NÚÑEZ LUDEÑA
-    'E759708',  # FRESIA CLEMENTE RODRIGUEZ
-    'E759762',  # RENATO PAULO CALLAN ANDRADE
     'E759747',  # JORGELUIS ARMANDO CORDOVA TORRES
-    #'E759761',  # PABLO ANDRÉS MENDOZA CALLE
+    'E759761',  # PABLO ANDRÉS MENDOZA CALLE
     'E759899',  # AARON ADRIANO GUZMAN PHATTE
     'E760568',  # RICHARD BRUSS HUAYSARA ROMAN
-    'E760642',  # MANUEL ALEJANDRO ANGELES RAMON
-    'E760214',  # Renzo Alfredo Ulloa Bozeta 
+    'E759762',  # RENATO CALLAN
 ]
 
 # --- CÁLCULO AUTOMÁTICO DE FECHA Y HORA DE CORTE ---
@@ -34,13 +30,17 @@ fecha_hoy_str = ahora.strftime('%d/%m/%Y')
 
 print(f"[INFO] Fecha actual detectada: {fecha_hoy_str} -> Hora de corte aplicada: {hora_corte_manual}")
 
-ruta_salida = os.path.join(ruta_carpeta, 'Reporte_Consolidado_Final.xlsx')
+ruta_salida = os.path.join(ruta_carpeta, '#Corte_Fotos.xlsx')
+
+# Función auxiliar para obtener archivos ignorando los temporales de Excel (~$)
+def obtener_archivos_validos(ruta, patron):
+    archivos = glob.glob(os.path.join(ruta, patron))
+    return [arch for arch in archivos if not os.path.basename(arch).startswith('~$')]
 # ==========================================
 
-
-# --- PARTE 0: AUTO-REUBICACIÓN DESDE DESCARGAS (SOPORTA MÚLTIPLES ARCHIVOS) ---
+# --- PARTE 0: AUTO-REUBICACIÓN DESDE DESCARGAS ---
 ruta_descargas = os.path.join(os.path.expanduser('~'), 'Downloads')
-archivos_descargados = glob.glob(os.path.join(ruta_descargas, "*REGISTRO DE RF FOTOS*.xlsx"))
+archivos_descargados = obtener_archivos_validos(ruta_descargas, "*REGISTRO DE RF FOTOS*.xlsx")
 
 if archivos_descargados:
     for arch in archivos_descargados:
@@ -51,11 +51,11 @@ if archivos_descargados:
         except Exception as e:
             print(f"[ERROR] No se pudo mover {arch}: {e}")
 else:
-    print("[INFO] No hay nuevas descargas. Se usará(n) el/los 'REGISTRO DE RF FOTOS' existentes en la carpeta.")
+    print("[INFO] No hay nuevas descargas. Se usará(n) el/los 'REGISTRO DE RF FOTOS' existentes.")
 
 
 # --- PARTE 1: PROCESAR "REPORTE NIVELES IA" ---
-archivos_cortes = glob.glob(os.path.join(ruta_carpeta, "Reporte_Niveles_IA*.xlsx"))
+archivos_cortes = obtener_archivos_validos(ruta_carpeta, "Reporte_Niveles_IA*.xlsx")
 datos_reporte = []
 meses_espanol = {1:'ene', 2:'feb', 3:'mar', 4:'abr', 5:'may', 6:'jun', 
                  7:'jul', 8:'ago', 9:'sep', 10:'oct', 11:'nov', 12:'dic'}
@@ -63,29 +63,22 @@ meses_espanol = {1:'ene', 2:'feb', 3:'mar', 4:'abr', 5:'may', 6:'jun',
 for archivo in archivos_cortes:
     try:
         print(f"[LECTURA] Procesando reporte IA: {os.path.basename(archivo)}")
-        
-        # Extrae la fecha ignorando el posible guion bajo inicial
         match = re.search(r'Reporte_Niveles_IA_?(.*?)\.xlsx', os.path.basename(archivo), re.IGNORECASE)
         fecha_texto = match.group(1).strip() if match else "Desconocida"
         
         try:
-            # Convierte el formato DDMMYYYY (ej. 05082026) a fecha
             f_obj = pd.to_datetime(fecha_texto, format='%d%m%Y')
             fecha = f"{f_obj.day:02d}-{meses_espanol[f_obj.month]}"
         except Exception:
             fecha = fecha_texto
         
-        # Identificar y leer la hoja "Corte x asesor" independientemente de mayúsculas/minúsculas
         xls = pd.ExcelFile(archivo)
         hoja_objetivo = next((s for s in xls.sheet_names if 'corte x asesor' in s.strip().lower()), None)
         
-        if hoja_objetivo:
-            df_control = pd.read_excel(archivo, sheet_name=hoja_objetivo)
-        else:
-            print(f"[AVISO] No se encontró la hoja 'Corte x asesor' en {os.path.basename(archivo)}. Usando la primera hoja.")
-            df_control = pd.read_excel(archivo)
+        df_control = pd.read_excel(archivo, sheet_name=hoja_objetivo if hoja_objetivo else 0)
+        if not hoja_objetivo:
+            print(f"[AVISO] Hoja 'Corte x asesor' no encontrada. Usando la primera hoja.")
             
-        # Búsqueda dinámica de la fila de cabeceras que contenga 'TOTAL' y 'PENDIENTES'
         header_idx = -1
         for i, row in df_control.head(20).iterrows():
             row_str = ' '.join([str(val).upper() for val in row if pd.notna(val)])
@@ -94,61 +87,33 @@ for archivo in archivos_cortes:
                 break
                 
         if header_idx != -1:
-            # Asignar la fila encontrada como nombres de columnas
             df_control.columns = df_control.iloc[header_idx]
-            # Recortar el DataFrame para que solo contenga los datos debajo de las cabeceras
             df_control = df_control.iloc[header_idx+1:].reset_index(drop=True)
-        else:
-            print(f"[AVISO] No se encontraron cabeceras claras de TOTAL y PENDIENTES en {os.path.basename(archivo)}")
 
-        # Identificar las columnas exactas
         col_total = next((c for c in df_control.columns if pd.notna(c) and 'TOTAL' in str(c).strip().upper()), None)
         col_pend = next((c for c in df_control.columns if pd.notna(c) and 'PENDIENTE' in str(c).strip().upper()), None)
         col_term = next((c for c in df_control.columns if pd.notna(c) and 'TERMINADO' in str(c).strip().upper()), None)
         
-        # Extraer el primer valor numérico válido de cada columna
-        try:
-            total = pd.to_numeric(df_control[col_total], errors='coerce').dropna().iloc[0] if col_total else 0
-        except IndexError:
-            total = 0
-            
-        try:
-            pendientes = pd.to_numeric(df_control[col_pend], errors='coerce').dropna().iloc[0] if col_pend else 0
-        except IndexError:
-            pendientes = 0
-            
-        if col_term:
-            try:
-                terminados = pd.to_numeric(df_control[col_term], errors='coerce').dropna().iloc[0]
-            except IndexError:
-                terminados = total - pendientes
-        else:
-            terminados = total - pendientes
+        total = pd.to_numeric(df_control[col_total], errors='coerce').dropna().iloc[0] if col_total and not df_control[col_total].dropna().empty else 0
+        pendientes = pd.to_numeric(df_control[col_pend], errors='coerce').dropna().iloc[0] if col_pend and not df_control[col_pend].dropna().empty else 0
+        terminados = pd.to_numeric(df_control[col_term], errors='coerce').dropna().iloc[0] if col_term and not df_control[col_term].dropna().empty else (total - pendientes)
             
         if int(total) == 0 and int(pendientes) == 0:
-            print(f"[OMITIDO] Sin datos encontrados para procesar en: {os.path.basename(archivo)}")
             continue
             
-        datos_reporte.append({
-            'FECHA': fecha, 
-            'TOTAL': int(total), 
-            'PENDIENTES': int(pendientes),
-            'TERMINADOS': int(terminados)
-        })
+        datos_reporte.append({'FECHA': fecha, 'TOTAL': int(total), 'PENDIENTES': int(pendientes), 'TERMINADOS': int(terminados)})
     except Exception as e:
         print(f"Error procesando {archivo}: {e}")
 
 df_cortes = pd.DataFrame(datos_reporte)
 if not df_cortes.empty:
-    column_order = ['FECHA', 'TOTAL', 'PENDIENTES', 'TERMINADOS']
-    df_cortes = df_cortes[column_order]
-    
+    df_cortes = df_cortes[['FECHA', 'TOTAL', 'PENDIENTES', 'TERMINADOS']]
     totales = df_cortes[['TOTAL', 'PENDIENTES', 'TERMINADOS']].sum()
     df_cortes = pd.concat([df_cortes, pd.DataFrame({'FECHA': ['TOTAL'], **totales.to_dict()})], ignore_index=True)
 
 
-# --- PARTE 2: PROCESAR "REGISTRO DE RF FOTOS" (COMBINA TODOS LOS ARCHIVOS QUE COINCIDAN) ---
-archivos_fotos = glob.glob(os.path.join(ruta_carpeta, "*REGISTRO DE RF FOTOS*.xlsx"))
+# --- PARTE 2: PROCESAR "REGISTRO DE RF FOTOS" ---
+archivos_fotos = obtener_archivos_validos(ruta_carpeta, "*REGISTRO DE RF FOTOS*.xlsx")
 df_fotos_dinamica = pd.DataFrame()
 
 if archivos_fotos:
@@ -160,9 +125,7 @@ if archivos_fotos:
             df_temp.columns = df_temp.columns.astype(str).str.strip()
             lista_dfs.append(df_temp)
         
-        # Consolidación de todas las partes cargadas
         df_f = pd.concat(lista_dfs, ignore_index=True)
-        
         col_fecha = next((col for col in df_f.columns if 'hora de fi' in col.lower()), None)
         col_hora = next((col for col in df_f.columns if 'nalización' in col.lower()), None)
         
@@ -193,8 +156,7 @@ if archivos_fotos:
                 for (fecha_aux, usuario_aux), group in df_grouped.groupby(['FECHA_SOLO', 'USUARIO E']):
                     conteo = dict(zip(group['HORA_INT'], group['SOT']))
                     for h_baja in [h for h, c in conteo.items() if 1 <= c <= 5]:
-                        if conteo[h_baja] == 0:
-                            continue
+                        if conteo[h_baja] == 0: continue
                         objetivos = [h for h, c in conteo.items() if h != h_baja and c > 0]
                         if objetivos:
                             conteo[min(objetivos, key=lambda x: abs(x - h_baja))] += conteo[h_baja]
@@ -218,9 +180,9 @@ if archivos_fotos:
                     df_ajustada['HORA_FORMATO'] = pd.Categorical(df_ajustada['HORA_FORMATO'], categories=horas_ordenadas, ordered=True)
                     df_fotos_dinamica = pd.pivot_table(df_ajustada, index=['USUARIO E'], columns='HORA_FORMATO', values='SOT', aggfunc='sum', margins=True, margins_name='Total').fillna("")
             else:
-                print(f"[AVISO] Después de filtrar por fecha de hoy ({fecha_hoy_str}) y hora (<{hora_corte_manual}), no quedaron registros en RF FOTOS.")
+                print(f"[AVISO] Sin registros en RF FOTOS para hoy ({fecha_hoy_str}) antes de las {hora_corte_manual}.")
         else:
-            print(f"No se detectaron las columnas requeridas. Halladas: {list(df_f.columns)}")
+            print(f"[ERROR] Columnas requeridas no detectadas. Halladas: {list(df_f.columns)}")
     except Exception as e:
         print(f"Error procesando fotos: {e}")
 
@@ -237,88 +199,71 @@ with pd.ExcelWriter(ruta_salida, engine='openpyxl') as writer:
     if not df_fotos_dinamica.empty:
         df_fotos_dinamica.to_excel(writer, sheet_name='Resumen', index=True, startrow=fila_t2)
 
-
 # --- PARTE 4: MEJORAS VISUALES ---
 if os.path.exists(ruta_salida):
     wb = load_workbook(ruta_salida)
-    ws = wb['Resumen']
-    
-    # --- Paleta de Colores ---
-    banner_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid") # Azul Oscuro
-    blue_fill   = PatternFill(start_color="3B5E94", end_color="3B5E94", fill_type="solid") # Azul Base Tablas
-    pend_fill   = PatternFill(start_color="558ED5", end_color="558ED5", fill_type="solid") # Azul Claro Pendientes
-    
-    white_font  = Font(color="FFFFFF", bold=True)
-    banner_font = Font(color="FFFFFF", bold=True, size=16) 
-    
-    center_align = Alignment(horizontal="center", vertical="center")
-
-    # 1. Alineación general centrada para todas las celdas
-    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
-        for cell in row:
-            cell.alignment = center_align
-
-    # 2. INSERTAR ENCABEZADO BANNER Y LOGO
-    max_col = ws.max_column if ws.max_column > 1 else 8
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max_col)
-    
-    for col_idx in range(1, max_col + 1):
-        celda = ws.cell(row=1, column=col_idx)
-        celda.fill = banner_fill
-        celda.font = banner_font
-            
-    # Texto centrado limpiamente
-    ws.cell(row=1, column=1).value = f"CORTE FOTOS - {hora_corte_manual}"
-    
-    # Altura del Banner ajustada a 50 puntos
-    ws.row_dimensions[1].height = 50
-
-    # Insertar Logo en la Celda A1
-    if os.path.exists(ruta_logo):
-        try:
-            img = Image(ruta_logo)
-            img.height = 64
-            img.width = 64
-            img.left = 80 
-            img.top = 3   
-            
-            ws.add_image(img, 'A1')
-        except Exception as e:
-            pass
-
-    # 3. Formato Tabla 1 (Reporte Niveles IA)
-    if not df_cortes.empty:
-        row_header_cortes = startrow_cortes + 1                  
-        row_total_cortes = startrow_cortes + len(df_cortes) + 1  
+    if 'Resumen' in wb.sheetnames:
+        ws = wb['Resumen']
         
-        for row_idx in [row_header_cortes, row_total_cortes]:
-            for col_idx, col_name in enumerate(df_cortes.columns, 1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                if 'PEND' in str(col_name).upper():
-                    cell.fill = pend_fill
-                else:
-                    cell.fill = blue_fill
-                cell.font = white_font
-
-    # 4. Formato Tabla 2 (RF Fotos Dinámica)
-    if not df_fotos_dinamica.empty:
-        row_header_fotos = fila_t2 + 1
-        for col_idx in range(1, ws.max_column + 1):
-            cell = ws.cell(row=row_header_fotos, column=col_idx)
-            if cell.value is not None:
-                cell.fill = blue_fill
-                cell.font = white_font
+        banner_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+        blue_fill   = PatternFill(start_color="3B5E94", end_color="3B5E94", fill_type="solid")
+        pend_fill   = PatternFill(start_color="558ED5", end_color="558ED5", fill_type="solid")
         
+        white_font  = Font(color="FFFFFF", bold=True)
+        banner_font = Font(color="FFFFFF", bold=True, size=16) 
+        center_align = Alignment(horizontal="center", vertical="center")
+
+        # 1. Alineación general centrada
+        for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+            for cell in row: cell.alignment = center_align
+
+        # 2. INSERTAR ENCABEZADO BANNER Y LOGO
+        max_col = ws.max_column if ws.max_column > 1 else 8
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max_col)
+        
+        for col_idx in range(1, max_col + 1):
+            celda = ws.cell(row=1, column=col_idx)
+            celda.fill = banner_fill
+            celda.font = banner_font
+                
+        ws.cell(row=1, column=1).value = f"CORTE FOTOS - {hora_corte_manual}"
+        ws.row_dimensions[1].height = 50
+
+        if os.path.exists(ruta_logo):
+            try:
+                img = Image(ruta_logo)
+                img.height, img.width = 64, 64
+                img.left, img.top = 80, 3
+                ws.add_image(img, 'B1')
+            except: pass
+
+        # 3. Formato Tabla 1
+        if not df_cortes.empty:
+            row_header_cortes = startrow_cortes + 1                  
+            row_total_cortes = startrow_cortes + len(df_cortes) + 1  
+            
+            for row_idx in [row_header_cortes, row_total_cortes]:
+                for col_idx, col_name in enumerate(df_cortes.columns, 1):
+                    cell = ws.cell(row=row_idx, column=col_idx)
+                    cell.fill = pend_fill if 'PEND' in str(col_name).upper() else blue_fill
+                    cell.font = white_font
+
+        # 4. Formato Tabla 2
+        if not df_fotos_dinamica.empty:
+            row_header_fotos = fila_t2 + 1
+            for col_idx in range(1, ws.max_column + 1):
+                cell = ws.cell(row=row_header_fotos, column=col_idx)
+                if cell.value is not None:
+                    cell.fill, cell.font = blue_fill, white_font
+            
+            for col_idx in range(1, ws.max_column + 1):
+                cell = ws.cell(row=ws.max_row, column=col_idx)
+                if cell.value is not None:
+                    cell.fill, cell.font = blue_fill, white_font
+
+        # 5. Ajustar ancho
         for col_idx in range(1, ws.max_column + 1):
-            cell = ws.cell(row=ws.max_row, column=col_idx)
-            if cell.value is not None:
-                cell.fill = blue_fill
-                cell.font = white_font
+            ws.column_dimensions[get_column_letter(col_idx)].width = 15
 
-    # 5. Ajustar ancho de columnas
-    for col_idx in range(1, ws.max_column + 1):
-        letra_columna = get_column_letter(col_idx)
-        ws.column_dimensions[letra_columna].width = 15
-
-    wb.save(ruta_salida)
-    print(f"\n¡Éxito! Ambos reportes consolidados con el nuevo formato en:\n{ruta_salida}")
+        wb.save(ruta_salida)
+        print(f"\n¡Éxito! Ambos reportes consolidados con el nuevo formato en:\n{ruta_salida}")

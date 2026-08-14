@@ -1,0 +1,112 @@
+import pandas as pd
+from pathlib import Path
+from datetime import datetime
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.drawing.image import Image
+import os
+import re
+
+# --- 1. CONFIGURACIÓN DE RUTAS ---
+ruta_descargas = Path.home() / 'Downloads'
+ruta_directorio_salida = Path(r"C:\Users\mendozapa\HITSS\Angel Jesus Zavala Ubillus - Campañas Hitss - Angel Zavala\Cortes x Día - Minimesas")
+ruta_logo = ruta_directorio_salida / "LogoHits.png"
+ruta_excel_salida = ruta_directorio_salida / "Corte_VTI.xlsx"
+
+# Buscar archivos que contengan 'VTI' en el nombre
+archivos_vti = [f for f in ruta_descargas.glob('*VTI*.xls*') if '~$' not in f.name]
+
+if not archivos_vti:
+    print("Error: No se encontró ningún archivo con 'VTI' en el nombre en la carpeta de Descargas.")
+else:
+    # Tomamos el más reciente
+    archivo_vti = max(archivos_vti, key=os.path.getmtime)
+    print(f"Procesando archivo base: {archivo_vti.name}")
+
+    try:
+        # --- 2. EXTRAER FECHA DEL NOMBRE DEL ARCHIVO ---
+        # Busca el patrón de 4 dígitos, un guion bajo, y otros 4 dígitos (ej. 0508_0908)
+        match_fecha = re.search(r'(\d{2})(\d{2})_(\d{2})(\d{2})', archivo_vti.name)
+        if match_fecha:
+            # Formatea los grupos capturados a dd/mm - dd/mm
+            fecha_rango = f"{match_fecha.group(1)}/{match_fecha.group(2)} - {match_fecha.group(3)}/{match_fecha.group(4)}"
+        else:
+            fecha_rango = "Fecha no detectada"
+
+        # --- 3. PROCESAMIENTO DE LOS DATOS ---
+        df = pd.read_excel(archivo_vti)
+        df.columns = df.columns.astype(str).str.strip().str.upper()
+
+        if 'SOT' not in df.columns or 'TERMINADO' not in df.columns:
+            print("Error: El archivo no contiene las columnas exactas 'SOT' o 'TERMINADO'.")
+        else:
+            # Contabilizar filas y sacar pendientes
+            total_sot = df['SOT'].notna().sum()
+            terminados = df['TERMINADO'].notna().sum()
+            pendientes = total_sot - terminados
+
+            # --- 4. CREACIÓN Y FORMATO DEL NUEVO EXCEL ---
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Auditoria VTI"
+
+            # Colores y Estilos
+            color_azul_oscuro = "1F4E78"
+            color_azul_claro = "5B9BD5"
+            relleno_oscuro = PatternFill(start_color=color_azul_oscuro, end_color=color_azul_oscuro, fill_type="solid")
+            relleno_claro = PatternFill(start_color=color_azul_claro, end_color=color_azul_claro, fill_type="solid")
+            fuente_blanca_negrita = Font(color="FFFFFF", bold=True)
+            alineacion_centro = Alignment(horizontal="center", vertical="center")
+            borde_delgado = Border(left=Side(style='thin', color='D9D9D9'), right=Side(style='thin', color='D9D9D9'),
+                                   top=Side(style='thin', color='D9D9D9'), bottom=Side(style='thin', color='D9D9D9'))
+
+            # Encabezado (ahora abarca hasta la columna D)
+            ws.merge_cells('A1:D3')
+                        
+            ws['A1'] = f"Auditoria VTI"
+            ws['A1'].font = Font(color="FFFFFF", bold=True, size=16)
+            ws['A1'].fill = relleno_oscuro
+            ws['A1'].alignment = alineacion_centro
+
+            for r in range(1, 4):
+                for c in range(1, 5):
+                    ws.cell(row=r, column=c).fill = relleno_oscuro
+
+            # Insertar el logo
+            try:
+                img_excel = Image(ruta_logo)
+                img_excel.width = 60
+                img_excel.height = 60
+                ws.add_image(img_excel, 'A1')
+            except Exception as e:
+                print(f"Aviso: No se pudo cargar el logo. Verifica que 'LogoHits.png' esté en la ruta indicada. Error: {e}")
+
+            # Cabeceras de la Tabla (4 columnas)
+            encabezados_tabla = ["RANGO DE FECHAS", "TOTAL", "PENDIENTES", "TERMINADOS"]
+            for col_idx, texto in enumerate(encabezados_tabla, 1):
+                celda = ws.cell(row=5, column=col_idx, value=texto)
+                celda.font = fuente_blanca_negrita
+                celda.alignment = alineacion_centro
+                celda.fill = relleno_claro if texto == "PENDIENTES" else relleno_oscuro
+
+            # Volcar la data en la fila 6
+            valores_fila = [fecha_rango, total_sot, pendientes, terminados]
+            for col_idx, val in enumerate(valores_fila, 1):
+                celda = ws.cell(row=6, column=col_idx, value=val)
+                celda.alignment = alineacion_centro
+                celda.border = borde_delgado
+
+            # Ajustar anchos
+            ws.column_dimensions['A'].width = 22
+            ws.column_dimensions['B'].width = 15
+            ws.column_dimensions['C'].width = 15
+            ws.column_dimensions['D'].width = 18
+
+            # Guardar en la ruta específica
+            ruta_directorio_salida.mkdir(parents=True, exist_ok=True)
+            wb.save(ruta_excel_salida)
+            
+            print(f"¡Éxito! El cuadro se ha generado en:\n{ruta_excel_salida}")
+
+    except Exception as e:
+        print(f"Ocurrió un error inesperado al procesar el archivo: {e}")
